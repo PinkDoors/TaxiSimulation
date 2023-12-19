@@ -1,0 +1,69 @@
+[
+  {
+    "create": "trips",
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "required": [
+          "id",
+          "driverId",
+          "from",
+          "to",
+          "price",
+          "tripStatus"
+        ],
+        "properties": {
+          "Id": {
+            "bsonType": "string",
+            "format": "uuid"
+          },
+          "DriverId": {
+            "bsonType": "string"
+          },
+          "From": {
+            "$ref": "#/definitions/LatLngLiteral"
+          },
+          "To": {
+            "$ref": "#/definitions/LatLngLiteral"
+          },
+          "Price": {
+            "$ref": "#/definitions/Money"
+          },
+          "TripStatus": {
+            "$ref": "#/definitions/TripStatus"
+          }
+        },
+        "definitions": {
+          "LatLngLiteral": {
+            "bsonType": "object",
+            "required": ["lat", "lng"],
+            "properties": {
+              "Lat": {
+                "bsonType": "number"
+              },
+              "Lng": {
+                "bsonType": "number"
+              }
+            }
+          },
+          "Money": {
+            "bsonType": "object",
+            "required": ["amount", "currency"],
+            "properties": {
+              "Amount": {
+                "bsonType": "number"
+              },
+              "Currency": {
+                "bsonType": "string"
+              }
+            }
+          },
+          "TripStatus": {
+            "bsonType": "string",
+            "enum": ["DRIVER_SEARCH", "DRIVER_FOUND", "ON_POSITION", "STARTED", "ENDED", "CANCELED"]
+          }
+        }
+      }
+    }
+  }
+]

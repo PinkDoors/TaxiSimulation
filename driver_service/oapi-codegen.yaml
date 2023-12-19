@@ -1,0 +1,7 @@
+package: openapi
+output: ../internal/adapters/http/generate/server.gen.go
+generate:
+  embedded-spec: true
+  strict-server: true
+  models: true
+  chi-server: true # compatible with net/http
