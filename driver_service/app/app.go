@@ -1,19 +1,15 @@
 package app
 
 import (
-	//"Task3/config"
-	//"Task3/internal/application"
-	//"Task3/internal/infrastracture/logger"
-	//repository "Task3/internal/infrastracture/repository/users"
-	//"Task3/internal/infrastracture/tracing"
-	//"Task3/web/http/handlers"
-	//"Task3/web/http/routers"
 	"context"
 	config "driver_service/configs"
 	http2 "driver_service/internal/adapters/http"
 	openapi "driver_service/internal/adapters/http/generate"
 	"driver_service/internal/application/trip"
 	domainTrip "driver_service/internal/domain/repository/trip"
+	"driver_service/internal/infrastracture/eventbus/consumer"
+	"driver_service/internal/infrastracture/eventbus/consumer/kafka"
+	"driver_service/internal/infrastracture/eventbus/consumer/kafka/trip_inbound"
 	"driver_service/internal/infrastracture/logger"
 	infraTrip "driver_service/internal/infrastracture/repository/trip"
 	"errors"
@@ -21,54 +17,74 @@ import (
 	"github.com/go-chi/chi/v5"
 	"strconv"
 
-	//"driver_service/internal/infrastracture/tracing"
-	//"errors"
-	//"fmt"
 	"github.com/go-chi/chi/middleware"
-	//"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"log"
 	"moul.io/chizap"
 	"net/http"
-	//"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type App struct {
 	//userHandler    *handlers.UserHandler
 	service    *trip.Service
 	repository domainTrip.Repository
-	logger     *zap.Logger
-	srv        *http.Server
-	cfg        *config.Config
+
+	tripEventsConsumer consumer.Consumer
+	tripEventsHandler  consumer.MessageHandler
+	logger             *zap.Logger
+	srv                *http.Server
+	cfg                *config.Config
 }
 
 func NewApp() *App {
 	return &App{}
 }
 
-func (a *App) Init(ctx context.Context) error {
-	cfg, err := config.NewConfig()
+func (a *App) Init(ctx context.Context, appEnv string) error {
+	cfg, err := config.NewConfig(appEnv)
 	if err != nil {
 		log.Fatal("Could not read config.", err)
 		return err
 	}
-	a.cfg = cfg
+	a.cfg = &cfg
 
-	isDebug := cfg.AppEnv == "development"
+	a.InitLogger(appEnv)
+	a.InitRepositories()
+	a.InitServices()
+	a.InitKafka()
+
+	a.newHttpServer()
+
+	return nil
+}
+
+func (a *App) InitLogger(appEnv string) {
+	isDebug := appEnv == "development"
 
 	appLogger, err := logger.GetLogger(isDebug)
 	if err != nil {
 		log.Fatal("Could not initialize logger.", err)
 	}
 	a.logger = appLogger
+}
 
+func (a *App) InitRepositories() {
 	a.repository = infraTrip.NewRepository(a.cfg, a.logger)
+}
+
+func (a *App) InitServices() {
 	a.service = trip.NewService(a.repository, a.logger)
-	//a.userHandler = handlers.NewUserHandler(a.service)
+}
 
-	a.newHttpServer()
-
-	return nil
+func (a *App) InitKafka() {
+	a.tripEventsHandler = trip_inbound.NewTripInboundMessageHandler(a.service, a.logger)
+	a.tripEventsConsumer = kafka.NewKafkaConsumer(kafka.ConsumerConfig{
+		Host:           a.cfg.Kafka.TripInboundTopic,
+		Topic:          a.cfg.Kafka.TripInboundTopic,
+		Group:          a.cfg.Kafka.TripInboundGroup,
+		SessionTimeout: 1,
+		RetryTimeout:   1,
+	}, a.tripEventsHandler, a.logger)
 }
 
 func (a *App) newHttpServer() {
@@ -89,7 +105,7 @@ func (a *App) newHttpServer() {
 
 	a.srv = &http.Server{
 		Handler: router,
-		Addr:    fmt.Sprintf(":%s", strconv.Itoa(a.cfg.PORT)),
+		Addr:    fmt.Sprintf(":%s", strconv.Itoa(a.cfg.Http.PORT)),
 	}
 }
 
@@ -102,11 +118,15 @@ func (a *App) Start(ctx context.Context) error {
 		// defer shutdown()
 
 		if err := a.srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			a.logger.Error("Could not listen on port: "+strconv.Itoa(a.cfg.PORT), zap.Error(err))
+			a.logger.Error("Could not listen on port: "+strconv.Itoa(a.cfg.Http.PORT), zap.Error(err))
 		}
 	}()
 
-	a.logger.Info("Service start at port: " + strconv.Itoa(a.cfg.PORT))
+	go func() {
+		a.tripEventsConsumer.Consume(ctx)
+	}()
+
+	a.logger.Info("Service start at port: " + strconv.Itoa(a.cfg.Http.PORT))
 
 	return nil
 }

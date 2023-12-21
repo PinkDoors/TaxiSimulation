@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	application "driver_service/app"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -16,9 +17,14 @@ func main() {
 
 	ctxSys := newSystemContext(ctxWithCancel, 5*time.Second, newLogSystemSignalCallback())
 
+	appEnv, appEnvErr := getEnv("APP_ENV")
+	if appEnvErr != nil {
+		log.Fatal("No app environment provided")
+	}
+
 	app := application.NewApp()
 
-	if err := app.Init(ctxSys); err != nil {
+	if err := app.Init(ctxSys, appEnv); err != nil {
 		log.Fatal("start app failed")
 	}
 
@@ -53,6 +59,14 @@ func newSystemContext(ctx context.Context, delay time.Duration, callbacks ...Cal
 	}()
 
 	return ctx
+}
+
+func getEnv(key string) (string, error) {
+	if value, exists := os.LookupEnv(key); exists {
+		return value, nil
+	}
+
+	return "", errors.New("Unable to get \"" + key + "\" value.")
 }
 
 func newLogSystemSignalCallback() Callback {

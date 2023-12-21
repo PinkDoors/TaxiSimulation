@@ -195,7 +195,7 @@ func (r *Repository) getMongoClient(ctx context.Context) (*mongo.Client, error) 
 	optsAuth := options.Credential{
 		Username:   r.config.Db.Username,
 		Password:   r.config.Db.Password,
-		AuthSource: r.config.Db.Authsource,
+		AuthSource: r.config.Db.AuthSource,
 	}
 
 	opts.SetAuth(optsAuth)

@@ -4,8 +4,8 @@ FROM alpine
 WORKDIR /app
 
 COPY --from=build:develop /app/cmd/app ./app
-COPY --from=build:develop /app/.env ./.env
-#
-#ENV APP_ENV=Development
+COPY --from=build:develop /app/.env.development ./.env.development
+
+ENV APP_ENV=development
 
 CMD ["/app/app"]
