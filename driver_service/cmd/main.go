@@ -3,19 +3,12 @@ package main
 import (
 	"context"
 	application "driver_service/app"
-	"github.com/joho/godotenv"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 )
-
-func init() {
-	if err := godotenv.Load(); err != nil {
-		log.Print("No .env file found")
-	}
-}
 
 func main() {
 	ctxWithCancel, cancel := context.WithCancel(context.Background())

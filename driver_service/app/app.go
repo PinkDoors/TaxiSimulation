@@ -54,7 +54,7 @@ func (a *App) Init(ctx context.Context) error {
 	}
 	a.cfg = cfg
 
-	isDebug := cfg.AppEnv == "Development"
+	isDebug := cfg.AppEnv == "development"
 
 	appLogger, err := logger.GetLogger(isDebug)
 	if err != nil {
@@ -62,10 +62,8 @@ func (a *App) Init(ctx context.Context) error {
 	}
 	a.logger = appLogger
 
-	println(cfg)
-
 	a.repository = infraTrip.NewRepository(a.cfg, a.logger)
-	a.service = trip.NewService(a.repository)
+	a.service = trip.NewService(a.repository, a.logger)
 	//a.userHandler = handlers.NewUserHandler(a.service)
 
 	a.newHttpServer()

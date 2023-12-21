@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.uber.org/zap"
+	"log"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -32,41 +33,6 @@ func NewRepository(
 	return &Repository{
 		config: config,
 		logger: logger,
-	}
-}
-
-func (r *Repository) getMongoClient(ctx context.Context) (*mongo.Client, error) {
-	opts := options.Client()
-	opts.ApplyURI(r.config.DB.URI)
-	opts.SetTimeout(time.Duration(r.config.DB.TIMEOUT) * time.Second)
-	optsAuth := options.Credential{
-		Username:   r.config.DB.USERNAME,
-		Password:   r.config.DB.PASSWORD,
-		AuthSource: r.config.DB.AUTHSOURCE,
-	}
-
-	opts.SetAuth(optsAuth)
-
-	opts.Monitor = otelmongo.NewMonitor()
-
-	client, err := mongo.Connect(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	err = client.Ping(context.Background(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
-}
-
-func checkFindErr(err error) {
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return
-		}
 	}
 }
 
@@ -101,23 +67,27 @@ func (r *Repository) GetTrips(ctx context.Context) ([]trip.Trip, error) {
 	}
 
 	cursor, err := col.Find(ctx, bson.M{})
-	checkFindErr(err)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) == false {
+			r.logger.Error("Failed to read trips.", zap.Error(err))
+		}
+	}
 
 	var foundTrips []trip.Trip
 	err = cursor.All(ctx, &foundTrips)
 	if err != nil {
-		r.logger.Error("Failed to read trips from Mongo.", zap.Error(err))
+		r.logger.Error("Failed to decode trips.", zap.Error(err))
 		return nil, err
 	}
 
 	return foundTrips, nil
 }
 
-func (r *Repository) GetTrip(ctx context.Context, tripId uuid.UUID) (trip.Trip, error) {
+func (r *Repository) GetTrip(ctx context.Context, tripId uuid.UUID) (*trip.Trip, error) {
 	client, err := r.getMongoClient(ctx)
 	if err != nil {
 		r.logger.Error("Failed to create Mongo client.", zap.Error(err))
-		return trip.Trip{}, err
+		return nil, err
 	}
 
 	defer func() {
@@ -128,13 +98,128 @@ func (r *Repository) GetTrip(ctx context.Context, tripId uuid.UUID) (trip.Trip, 
 
 	col := client.Database("driver-service").Collection("trips")
 	result := col.FindOne(ctx, bson.M{"id": tripId})
-	checkFindErr(result.Err())
+
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
+		r.logger.Error("Failed to read trip.", zap.Error(err))
+		return nil, err
+	}
 
 	var foundTrip trip.Trip
 	if err = result.Decode(&foundTrip); err != nil {
-		r.logger.Error("Failed to read trips from Mongo.", zap.Error(err))
-		return trip.Trip{}, err
+		r.logger.Error("Failed to decode trip", zap.Error(err))
+		return nil, err
 	}
 
-	return foundTrip, nil
+	return &foundTrip, nil
+}
+
+func (r *Repository) CreateTrip(ctx context.Context, tripId uuid.UUID) error {
+	client, err := r.getMongoClient(ctx)
+	if err != nil {
+		r.logger.Error("Failed to create Mongo client.", zap.Error(err))
+		return err
+	}
+
+	defer func() {
+		if mongoDisconnectErr := client.Disconnect(ctx); mongoDisconnectErr != nil {
+			r.logger.Error("Failed to disconnect from Mongo client.", zap.Error(err))
+		}
+	}()
+
+	col := client.Database("driver-service").Collection("trips")
+
+	_, err = col.InsertOne(ctx, trip.Trip{
+		Id:         tripId,
+		DriverId:   "test",
+		From:       models.LatLngLiteral{},
+		To:         models.LatLngLiteral{},
+		Price:      models.Money{},
+		TripStatus: "DRIVER_SEARCH",
+	})
+	if err != nil {
+		r.logger.Error("Failed to create new trip", zap.Error(err))
+		return err
+	}
+
+	return nil
+
+	// return r.updateTripStatus(ctx, tripId, trip.DriverFound)
+}
+
+func (r *Repository) AcceptTrip(ctx context.Context, tripId uuid.UUID) (tripFound bool, err error) {
+	return r.updateTripStatus(ctx, tripId, trip.DriverFound)
+}
+
+func (r *Repository) StartTrip(ctx context.Context, tripId uuid.UUID) (tripFound bool, err error) {
+	return r.updateTripStatus(ctx, tripId, trip.Started)
+}
+
+func (r *Repository) CancelTrip(ctx context.Context, tripId uuid.UUID) (tripFound bool, err error) {
+	return r.updateTripStatus(ctx, tripId, trip.Canceled)
+}
+
+func (r *Repository) updateTripStatus(ctx context.Context, tripId uuid.UUID, tripStatus trip.TripStatus) (tripFound bool, err error) {
+	client, err := r.getMongoClient(ctx)
+	if err != nil {
+		r.logger.Error("Failed to create Mongo client.", zap.Error(err))
+		return false, err
+	}
+
+	defer func() {
+		if mongoDisconnectErr := client.Disconnect(ctx); mongoDisconnectErr != nil {
+			r.logger.Error("Failed to disconnect from Mongo client.", zap.Error(err))
+		}
+	}()
+
+	col := client.Database("driver-service").Collection("trips")
+
+	filter := bson.D{{"id", tripId}}
+	update := bson.D{{"$set", bson.D{{"tripStatus", tripStatus}}}}
+
+	result, err := col.UpdateOne(ctx, filter, update)
+	if err != nil {
+		r.logger.Error("Failed to update trip.", zap.Error(err))
+		return false, err
+	}
+
+	return result.MatchedCount > 0, nil
+}
+
+func (r *Repository) getMongoClient(ctx context.Context) (*mongo.Client, error) {
+	opts := options.Client()
+	opts.ApplyURI(r.config.Db.Uri)
+	opts.SetTimeout(time.Duration(r.config.Db.Timeout) * time.Second)
+	optsAuth := options.Credential{
+		Username:   r.config.Db.Username,
+		Password:   r.config.Db.Password,
+		AuthSource: r.config.Db.Authsource,
+	}
+
+	opts.SetAuth(optsAuth)
+
+	opts.Monitor = otelmongo.NewMonitor()
+
+	client, err := mongo.Connect(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	err = client.Ping(context.Background(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+func checkFindErr(err error) {
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return
+		}
+		log.Fatal(err)
+	}
 }

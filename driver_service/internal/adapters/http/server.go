@@ -22,7 +22,7 @@ func NewTripServer(
 }
 
 // GetTrips обработчик для GetTrips ручки
-func (s *TripServer) GetTrips(ctx context.Context, request generated.GetTripsRequestObject) (generated.GetTripsResponseObject, error) {
+func (s *TripServer) GetTrips(ctx context.Context, _ generated.GetTripsRequestObject) (generated.GetTripsResponseObject, error) {
 	// Логика для обработки GetTrips
 	fmt.Println("Handling GetTrips request")
 	// Возвращаем фиктивные данные
@@ -52,7 +52,11 @@ func (s *TripServer) GetTripByID(ctx context.Context, request generated.GetTripB
 		return generated.GetTripByID500Response{}, err
 	}
 
-	targetTrip := trip2.ToResponseTrip(foundTrip)
+	if foundTrip != nil {
+		return generated.GetTripByID404Response{}, err
+	}
+
+	targetTrip := trip2.ToResponseTrip(*foundTrip)
 
 	// Возвращаем фиктивные данные
 	return generated.GetTripByID200JSONResponse(targetTrip), nil
@@ -63,10 +67,14 @@ func (s *TripServer) AcceptTrip(ctx context.Context, request generated.AcceptTri
 	// Логика для обработки AcceptTrip
 	fmt.Println("Handling AcceptTrip request")
 
-	//trips, err := s.tripService.GetTrip(ctx, request.TripId)
-	//if err != nil {
-	//	return generated.GetTrips500Response{}, err
-	//}
+	tripFound, err := s.tripService.AcceptTrip(ctx, request.TripId)
+	if err != nil {
+		return generated.AcceptTrip500Response{}, err
+	}
+
+	if tripFound == false {
+		return generated.AcceptTrip404Response{}, nil
+	}
 
 	// Возвращаем фиктивные данные
 	return generated.AcceptTrip200Response{}, nil
@@ -76,6 +84,16 @@ func (s *TripServer) AcceptTrip(ctx context.Context, request generated.AcceptTri
 func (s *TripServer) CancelTrip(ctx context.Context, request generated.CancelTripRequestObject) (generated.CancelTripResponseObject, error) {
 	// Логика для обработки CancelTrip
 	fmt.Println("Handling CancelTrip request")
+
+	tripFound, err := s.tripService.AcceptTrip(ctx, request.TripId)
+	if err != nil {
+		return generated.CancelTrip500Response{}, err
+	}
+
+	if tripFound == false {
+		return generated.CancelTrip404Response{}, nil
+	}
+
 	// Возвращаем фиктивные данные
 	return generated.CancelTrip200Response{}, nil
 }
@@ -84,6 +102,16 @@ func (s *TripServer) CancelTrip(ctx context.Context, request generated.CancelTri
 func (s *TripServer) StartTrip(ctx context.Context, request generated.StartTripRequestObject) (generated.StartTripResponseObject, error) {
 	// Логика для обработки StartTrip
 	fmt.Println("Handling StartTrip request")
+
+	tripFound, err := s.tripService.StartTrip(ctx, request.TripId)
+	if err != nil {
+		return generated.StartTrip500Response{}, err
+	}
+
+	if tripFound == false {
+		return generated.StartTrip404Response{}, nil
+	}
+
 	// Возвращаем фиктивные данные
 	return generated.StartTrip200Response{}, nil
 }

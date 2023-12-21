@@ -2,22 +2,34 @@ package config
 
 import (
 	"errors"
+	"fmt"
+	"github.com/joho/godotenv"
 	"os"
 	"strconv"
+
+	"github.com/spf13/viper"
 )
 
 type Config struct {
 	AppEnv string
 	PORT   int
-	DB     Database
+	Db     Database
+	Kafka  Kafka
 }
 
 type Database struct {
-	URI        string
-	TIMEOUT    int
-	USERNAME   string
-	PASSWORD   string
-	AUTHSOURCE string
+	Uri        string
+	Timeout    int
+	Username   string
+	Password   string
+	Authsource string
+}
+
+type Kafka struct {
+	TripInboundTopic    string
+	TripInboundGroupId  string
+	TripOutboundTopic   string
+	TripOutboundGroupId string
 }
 
 type HTTP struct {
@@ -30,6 +42,11 @@ func NewConfig() (*Config, error) {
 		return nil, appEnvErr
 	}
 
+	envFile := fmt.Sprintf(".env.%s", appEnv)
+	if err := godotenv.Load(envFile); err != nil {
+		return nil, err
+	}
+
 	port, portErr := getEnvAsInt("PORT")
 	if portErr != nil {
 		return nil, portErr
@@ -40,10 +57,30 @@ func NewConfig() (*Config, error) {
 		return nil, dbErr
 	}
 
+	// Tell viper the path/location of your env file. If it is root just add "."
+	viper.AddConfigPath(".")
+
+	// Tell viper the name of your file
+	viper.SetConfigName("app")
+
+	envFile := fmt.Sprintf(".env.%s", appEnv)
+	// Tell viper the type of your file
+	viper.SetConfigType(envFile)
+
+	// Viper reads all the variables from env file and log error if any found
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatal("Error reading env file", err)
+	}
+
+	// Viper unmarshals the loaded env varialbes into the struct
+	if err := viper.Unmarshal(&config); err != nil {
+		log.Fatal(err)
+	}
+
 	return &Config{
 		AppEnv: appEnv,
 		PORT:   port,
-		DB:     db,
+		Db:     db,
 	}, nil
 }
 
@@ -74,11 +111,40 @@ func getDBConfig() (Database, error) {
 	}
 
 	return Database{
-		URI:        uri,
-		TIMEOUT:    timeout,
-		USERNAME:   username,
-		PASSWORD:   password,
-		AUTHSOURCE: authSource,
+		Uri:        uri,
+		Timeout:    timeout,
+		Username:   username,
+		Password:   password,
+		Authsource: authSource,
+	}, nil
+}
+
+func getKafkaConfig() (Kafka, error) {
+	tripInboundTopic, tripInboundTopicErr := getEnv("TRIP_INBOUND_TOPIC")
+	if tripInboundTopicErr != nil {
+		return Kafka{}, tripInboundTopicErr
+	}
+
+	tripInboundConsumerGroup, tripInboundConsumerGroupErr := getEnv("TRIP_INBOUND_CONSUMER_GROUP")
+	if tripInboundConsumerGroupErr != nil {
+		return Kafka{}, tripInboundConsumerGroupErr
+	}
+
+	tripOutboundTopic, tripOutboundTopicErr := getEnv("TRIP_INBOUND_TOPIC")
+	if tripOutboundTopicErr != nil {
+		return Kafka{}, tripOutboundTopicErr
+	}
+
+	tripOutboundConsumerGroup, tripOutboundConsumerGroupErr := getEnv("TRIP_INBOUND_CONSUMER_GROUP")
+	if tripOutboundConsumerGroupErr != nil {
+		return Kafka{}, tripOutboundConsumerGroupErr
+	}
+
+	return Kafka{
+		TripInboundTopic:    tripInboundTopic,
+		TripInboundGroupId:  tripInboundConsumerGroup,
+		TripOutboundTopic:   tripOutboundTopic,
+		TripOutboundGroupId: tripOutboundConsumerGroup,
 	}, nil
 }
 
