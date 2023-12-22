@@ -21,6 +21,7 @@ type Database struct {
 }
 
 type Kafka struct {
+	HOST              string `mapstructure:"KAFKA_HOST"`
 	TripInboundTopic  string `mapstructure:"TRIP_INBOUND_TOPIC"`
 	TripInboundGroup  string `mapstructure:"TRIP_INBOUND_CONSUMER_GROUP"`
 	TripOutboundTopic string `mapstructure:"TRIP_OUTBOUND_TOPIC"`

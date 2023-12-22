@@ -67,29 +67,58 @@ type Trip struct {
 // TripStatus defines model for Trip.Status.
 type TripStatus string
 
+// GetTripsParams defines parameters for GetTrips.
+type GetTripsParams struct {
+	UserId openapi_types.UUID `json:"user_id"`
+}
+
+// GetTripByIDParams defines parameters for GetTripByID.
+type GetTripByIDParams struct {
+	UserId openapi_types.UUID `json:"user_id"`
+}
+
+// AcceptTripParams defines parameters for AcceptTrip.
+type AcceptTripParams struct {
+	UserId openapi_types.UUID `json:"user_id"`
+}
+
 // CancelTripParams defines parameters for CancelTrip.
 type CancelTripParams struct {
 	// Reason Reason for trip cancellation
-	Reason *string `form:"reason,omitempty" json:"reason,omitempty"`
+	Reason *string            `form:"reason,omitempty" json:"reason,omitempty"`
+	UserId openapi_types.UUID `json:"user_id"`
+}
+
+// EndTripParams defines parameters for EndTrip.
+type EndTripParams struct {
+	UserId openapi_types.UUID `json:"user_id"`
+}
+
+// StartTripParams defines parameters for StartTrip.
+type StartTripParams struct {
+	UserId openapi_types.UUID `json:"user_id"`
 }
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// List trips
 	// (GET /trips)
-	GetTrips(w http.ResponseWriter, r *http.Request)
+	GetTrips(w http.ResponseWriter, r *http.Request, params GetTripsParams)
 	// Get trip by ID
 	// (GET /trips/{trip_id})
-	GetTripByID(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID)
+	GetTripByID(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params GetTripByIDParams)
 	// Accept trip
 	// (POST /trips/{trip_id}/accept)
-	AcceptTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID)
+	AcceptTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params AcceptTripParams)
 	// Cancel trip
 	// (POST /trips/{trip_id}/cancel)
 	CancelTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params CancelTripParams)
+	// End trip
+	// (POST /trips/{trip_id}/end)
+	EndTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params EndTripParams)
 	// Start trip
 	// (POST /trips/{trip_id}/start)
-	StartTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID)
+	StartTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params StartTripParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -98,19 +127,19 @@ type Unimplemented struct{}
 
 // List trips
 // (GET /trips)
-func (_ Unimplemented) GetTrips(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) GetTrips(w http.ResponseWriter, r *http.Request, params GetTripsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get trip by ID
 // (GET /trips/{trip_id})
-func (_ Unimplemented) GetTripByID(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID) {
+func (_ Unimplemented) GetTripByID(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params GetTripByIDParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Accept trip
 // (POST /trips/{trip_id}/accept)
-func (_ Unimplemented) AcceptTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID) {
+func (_ Unimplemented) AcceptTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params AcceptTripParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -120,9 +149,15 @@ func (_ Unimplemented) CancelTrip(w http.ResponseWriter, r *http.Request, tripId
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// End trip
+// (POST /trips/{trip_id}/end)
+func (_ Unimplemented) EndTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params EndTripParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Start trip
 // (POST /trips/{trip_id}/start)
-func (_ Unimplemented) StartTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID) {
+func (_ Unimplemented) StartTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params StartTripParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -139,8 +174,38 @@ type MiddlewareFunc func(http.Handler) http.Handler
 func (siw *ServerInterfaceWrapper) GetTrips(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetTripsParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "user_id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("user_id")]; found {
+		var UserId openapi_types.UUID
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "user_id", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "user_id", runtime.ParamLocationHeader, valueList[0], &UserId)
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
+			return
+		}
+
+		params.UserId = UserId
+
+	} else {
+		err := fmt.Errorf("Header parameter user_id is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "user_id", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetTrips(w, r)
+		siw.Handler.GetTrips(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -165,8 +230,36 @@ func (siw *ServerInterfaceWrapper) GetTripByID(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetTripByIDParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "user_id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("user_id")]; found {
+		var UserId openapi_types.UUID
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "user_id", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "user_id", runtime.ParamLocationHeader, valueList[0], &UserId)
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
+			return
+		}
+
+		params.UserId = UserId
+
+	} else {
+		err := fmt.Errorf("Header parameter user_id is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "user_id", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetTripByID(w, r, tripId)
+		siw.Handler.GetTripByID(w, r, tripId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -191,8 +284,36 @@ func (siw *ServerInterfaceWrapper) AcceptTrip(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AcceptTripParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "user_id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("user_id")]; found {
+		var UserId openapi_types.UUID
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "user_id", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "user_id", runtime.ParamLocationHeader, valueList[0], &UserId)
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
+			return
+		}
+
+		params.UserId = UserId
+
+	} else {
+		err := fmt.Errorf("Header parameter user_id is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "user_id", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AcceptTrip(w, r, tripId)
+		siw.Handler.AcceptTrip(w, r, tripId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -228,8 +349,87 @@ func (siw *ServerInterfaceWrapper) CancelTrip(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	headers := r.Header
+
+	// ------------- Required header parameter "user_id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("user_id")]; found {
+		var UserId openapi_types.UUID
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "user_id", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "user_id", runtime.ParamLocationHeader, valueList[0], &UserId)
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
+			return
+		}
+
+		params.UserId = UserId
+
+	} else {
+		err := fmt.Errorf("Header parameter user_id is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "user_id", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CancelTrip(w, r, tripId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// EndTrip operation middleware
+func (siw *ServerInterfaceWrapper) EndTrip(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "trip_id" -------------
+	var tripId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "trip_id", runtime.ParamLocationPath, chi.URLParam(r, "trip_id"), &tripId)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "trip_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EndTripParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "user_id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("user_id")]; found {
+		var UserId openapi_types.UUID
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "user_id", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "user_id", runtime.ParamLocationHeader, valueList[0], &UserId)
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
+			return
+		}
+
+		params.UserId = UserId
+
+	} else {
+		err := fmt.Errorf("Header parameter user_id is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "user_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EndTrip(w, r, tripId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -254,8 +454,36 @@ func (siw *ServerInterfaceWrapper) StartTrip(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartTripParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "user_id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("user_id")]; found {
+		var UserId openapi_types.UUID
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "user_id", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "user_id", runtime.ParamLocationHeader, valueList[0], &UserId)
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "user_id", Err: err})
+			return
+		}
+
+		params.UserId = UserId
+
+	} else {
+		err := fmt.Errorf("Header parameter user_id is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "user_id", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.StartTrip(w, r, tripId)
+		siw.Handler.StartTrip(w, r, tripId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -391,6 +619,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/trips/{trip_id}/cancel", wrapper.CancelTrip)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/trips/{trip_id}/end", wrapper.EndTrip)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/trips/{trip_id}/start", wrapper.StartTrip)
 	})
 
@@ -398,6 +629,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 }
 
 type GetTripsRequestObject struct {
+	Params GetTripsParams
 }
 
 type GetTripsResponseObject interface {
@@ -423,6 +655,7 @@ func (response GetTrips500Response) VisitGetTripsResponse(w http.ResponseWriter)
 
 type GetTripByIDRequestObject struct {
 	TripId openapi_types.UUID `json:"trip_id"`
+	Params GetTripByIDParams
 }
 
 type GetTripByIDResponseObject interface {
@@ -464,6 +697,7 @@ func (response GetTripByID500Response) VisitGetTripByIDResponse(w http.ResponseW
 
 type AcceptTripRequestObject struct {
 	TripId openapi_types.UUID `json:"trip_id"`
+	Params AcceptTripParams
 }
 
 type AcceptTripResponseObject interface {
@@ -527,8 +761,42 @@ func (response CancelTrip500Response) VisitCancelTripResponse(w http.ResponseWri
 	return nil
 }
 
+type EndTripRequestObject struct {
+	TripId openapi_types.UUID `json:"trip_id"`
+	Params EndTripParams
+}
+
+type EndTripResponseObject interface {
+	VisitEndTripResponse(w http.ResponseWriter) error
+}
+
+type EndTrip200Response struct {
+}
+
+func (response EndTrip200Response) VisitEndTripResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type EndTrip404Response struct {
+}
+
+func (response EndTrip404Response) VisitEndTripResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
+type EndTrip500Response struct {
+}
+
+func (response EndTrip500Response) VisitEndTripResponse(w http.ResponseWriter) error {
+	w.WriteHeader(500)
+	return nil
+}
+
 type StartTripRequestObject struct {
 	TripId openapi_types.UUID `json:"trip_id"`
+	Params StartTripParams
 }
 
 type StartTripResponseObject interface {
@@ -573,6 +841,9 @@ type StrictServerInterface interface {
 	// Cancel trip
 	// (POST /trips/{trip_id}/cancel)
 	CancelTrip(ctx context.Context, request CancelTripRequestObject) (CancelTripResponseObject, error)
+	// End trip
+	// (POST /trips/{trip_id}/end)
+	EndTrip(ctx context.Context, request EndTripRequestObject) (EndTripResponseObject, error)
 	// Start trip
 	// (POST /trips/{trip_id}/start)
 	StartTrip(ctx context.Context, request StartTripRequestObject) (StartTripResponseObject, error)
@@ -608,8 +879,10 @@ type strictHandler struct {
 }
 
 // GetTrips operation middleware
-func (sh *strictHandler) GetTrips(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) GetTrips(w http.ResponseWriter, r *http.Request, params GetTripsParams) {
 	var request GetTripsRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetTrips(ctx, request.(GetTripsRequestObject))
@@ -632,10 +905,11 @@ func (sh *strictHandler) GetTrips(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetTripByID operation middleware
-func (sh *strictHandler) GetTripByID(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID) {
+func (sh *strictHandler) GetTripByID(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params GetTripByIDParams) {
 	var request GetTripByIDRequestObject
 
 	request.TripId = tripId
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetTripByID(ctx, request.(GetTripByIDRequestObject))
@@ -658,10 +932,11 @@ func (sh *strictHandler) GetTripByID(w http.ResponseWriter, r *http.Request, tri
 }
 
 // AcceptTrip operation middleware
-func (sh *strictHandler) AcceptTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID) {
+func (sh *strictHandler) AcceptTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params AcceptTripParams) {
 	var request AcceptTripRequestObject
 
 	request.TripId = tripId
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.AcceptTrip(ctx, request.(AcceptTripRequestObject))
@@ -710,11 +985,39 @@ func (sh *strictHandler) CancelTrip(w http.ResponseWriter, r *http.Request, trip
 	}
 }
 
+// EndTrip operation middleware
+func (sh *strictHandler) EndTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params EndTripParams) {
+	var request EndTripRequestObject
+
+	request.TripId = tripId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EndTrip(ctx, request.(EndTripRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EndTrip")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EndTripResponseObject); ok {
+		if err := validResponse.VisitEndTripResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // StartTrip operation middleware
-func (sh *strictHandler) StartTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID) {
+func (sh *strictHandler) StartTrip(w http.ResponseWriter, r *http.Request, tripId openapi_types.UUID, params StartTripParams) {
 	var request StartTripRequestObject
 
 	request.TripId = tripId
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.StartTrip(ctx, request.(StartTripRequestObject))
@@ -739,25 +1042,25 @@ func (sh *strictHandler) StartTrip(w http.ResponseWriter, r *http.Request, tripI
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+RXz24btxN+FWJ+v0MLbCXlH5roplhqKkC1C0nppTAMmjuSaeySG5LrRjAEJMohhx7y",
-	"Br30BQQjgt04Vl6B+0YFSdmSvUqsIGiLoqfdJbnffPN9M6PVMTCZZlKgMBrqx6DZAabU33ao6YhhhxtU",
-	"NHELMWqmeGa4FFCHhiBy/xCZIWF9n4shoURnyPiAM5JIRt1R8gs3B6RDDTd5jISKmHSkGIYnLkiMjKc0",
-	"ITEOFaKuQASZkhkqw9HzSKgpR7/CKyNABGaUIdRB5Ok+KhhHkIjhGoxP0CiDjCNQ+CznCmOo/+xZBdzd",
-	"CAw3CQZWK5JdQQSdHI8fpMCRY3I9RZrKXKzJsuHXCT7PFGqNMaGa0CuqgRmRA5LSQ6kIy5VCwUYkF9y4",
-	"DPA5TTNH7NGjyqMHEQykSp2YEMt8P8F1Ql1ilLncIwkagythmHR+ahLjgAuMyf6ItHs739y/e+fb1eDQ",
-	"ffoYVoJzLS/PLMJro7gYliReqLJCaneNpH3Fs7KiseJHqPZ47B5uhIlgoGTqNv6vcAB1+F912QTVRQdU",
-	"r3s5jiBgXaWR5zwup+CKlzO8DTzUwTgCbajJPWMUeeqybnbbP7W6e71Wo7v1PUSXz9/tPN1uQgQ723s/",
-	"7vTa/fbONkTQ6ze6/ZZbb203/XWrsb3V6rSaK1otuRn5mVmPS4K7JS4Gslwg9rdiYk/srHhtp3ZWTIg9",
-	"tVNSvLIfihd2ak/suZ3ZC3tmZ8R+sHM7s6f2rX1n5/YPUry0c1K8LCZ2Xrywc3tR/ErsiZ3bt/asmNiZ",
-	"PS/ekK880pm9KN4UE4cTETsvJva9x51GAfa8eFW8XkY6tVP7zk7tqZ3bk69h2atNXyGkh+rIGRbBESod",
-	"MrlTqVVqTi+ZoaAZd9VfqVXuudFEzYG3q2oUz/zdENfNJ64NCUc8jPKzsB1DHZ6g6S82FOpMCh1K9m6t",
-	"5i5MCoNhGNAsS3iYotVD7XAvB7S74wZTfZufvjuWLlKl6CiYeJ1vL2cMtSZXVN1LDwKj6yfbwqASNPHK",
-	"oSItpWQYjzpPU6pGN7M3dKhdYbtn2HUHg3bVY3fZ4/F4RcW1Uj0etZtee0VTNKgcXIlW0w1CppAajH1s",
-	"cIUKdW8ZRCBo6hRYxITVUWNUjtGKsrf0+Hj3C5273bANDbq/3iAmlXI/zC5XwuNw8n75pN8X0pCBzEX8",
-	"RY4/wUU49yPQ3Mj1KmUMMy9XJvUa9xt+vx+s3MD8gPdPub+RXX+tCUGwy/Q3cIBRwTD5uANbfn9zB/6e",
-	"9otuBu8i1VKQgVShBkNaSdB9QeNZjmq05KH8K7Aa9t/jc7DlM3zWhqpPNFrPbW/uskf7D7eZl+tj6ruT",
-	"/tWgX64SqMOBMVm9WnV/iZIDqU39Ye1hDVyKi9dL31K/r/tqWn7LTO17e1b6QrpuAIx3x38GAAD//+4z",
-	"Y6vfDQAA",
+	"H4sIAAAAAAAC/+RXwW4bNxD9FYLtoQW2kpI4aKybYqmpANUuJKWXwDDo3ZFMY5fckFw3giEgUQ459JA/",
+	"6KU/IBgR7Max8guzf1SQlC05K8cyisYuclotOZx5897j2HtIQ5mkUoAwmlYPqQ73IGHuZ4uZlui3uAHF",
+	"YrsQgQ4VTw2XglZpTRC5uw+hIX59l4s+YUSnEPIeD0ksQ2ZDye/c7JEWM9xkERAmItKSou/fuCARhDxh",
+	"MYmgrwB0iQY0VTIFZTg4HDEzxeoX+YoZaEDNIAVapSJLdkHRYUBj0V+S4zMwikmGAVXwPOMKIlp95lD5",
+	"vNsBNdzE4FEtUHaRwvNkcfwiBQwsksstskRmYkmXNbdO4EWqQGuICNOEXUD1yIjskYTtS0XCTCkQ4YBk",
+	"ghvbAbxgSWqBra+X1h8GtCdVYsmkkcx2Y1hG1HmOIpYHJAZjYKFMKK2emkTQ4wIisjsgzc7WD2v37/24",
+	"WJy2nz6mC8W5lucxs/LaKC76BYpnrCyA2l5CaVfxtMhopPgBqB0e2ZdPygS0p2RiN75V0KNV+k15fgnK",
+	"sxtQvqzlMKA+10UbWcajYgvWvDyE65J7HwwDqg0zmUMMIkts1/V287dGe6fTqLU3fqbB+ftPW0836zSg",
+	"W5s7v251mt3m1iYNaKdba3cbdr2xWXfPjdrmRqPVqC9wNcdm5A27HhYIt0tc9GTRIPhnPsIjnORvcIyT",
+	"fETwGMckf40f85c4xiM8xQme4QlOCH7EKU7wGN/he5zi3yR/hVOSv8pHOM1f4hTP8j8IHuEU3+FJPsIJ",
+	"nuZvyXcu0wme5W/zkc0TEJzmI/zg8o4Dn/Y0f52/mVc6xjG+xzEe4xSPvqfzu1p3DiEdUAdWsIAegNK+",
+	"k3ulSqli+ZIpCJZy6/5SpfTAjiZm9pxcZaN46n71Ydl84toQH+LSKDcLmxGt0idgurONlCmWgAGlafXZ",
+	"IeX25B6wCBQNqGCJxZlp7+PFu2FUBsFsVq9gyuG2PaxTKbS/HfcrFfsIpTDg5w5L05j7gV3e17aFw4X8",
+	"3ECir7OOu4hzwzCl2MD75TI1nSwMQWtywYo99NAjuhzZFAaUYLETCRRpKCX9JNZZkjA1+JRow/qWSWrf",
+	"6bYN9DKVD+1jh0fDBcGWqvJ40Kx/QWGCQst1O89DBcxA5PqigS9vnTcvPuvnVl1xvRlWFH9tufihVMr+",
+	"f2F7JTzykWvFSLcvpCE9mYnoX7npCczK2b9l9ZUcVWZhCKmjK5V6ibNqbr/rpbxlY3mst+Wslazw3wrs",
+	"xThvfwV1QyZCiK9Wd8Pt3w11v8zYKBRvA9NSkJ5U/u54ymKv6QzG8wzUYI5DuSN0sez/x0Ne8ht4CER0",
+	"tYEaIrob7vlaR0JDRDfQUhumPjPsO3b7bujpkH7Fo95JcZWyNtId9dpkKrbiGJNWy+VYhizek9pUH1Ue",
+	"VahtcXa88Mnz17KPm/knxxg/4EnhQ+ayAHS4PfwnAAD//+Tv+EGGEQAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

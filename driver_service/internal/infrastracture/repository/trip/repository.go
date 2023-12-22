@@ -6,6 +6,7 @@ import (
 	"driver_service/internal/domain/models"
 	"driver_service/internal/domain/models/trip"
 	domainRepo "driver_service/internal/domain/repository/trip"
+	trip2 "driver_service/internal/infrastracture/repository/model/trip"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
@@ -97,14 +98,15 @@ func (r *Repository) GetTrip(ctx context.Context, tripId uuid.UUID) (*trip.Trip,
 	}()
 
 	col := client.Database("driver-service").Collection("trips")
-	result := col.FindOne(ctx, bson.M{"id": tripId})
+	result := col.FindOne(ctx, bson.M{"id": tripId.String()})
 
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
+	findErr := result.Err()
+	if findErr != nil {
+		if errors.Is(findErr, mongo.ErrNoDocuments) {
 			return nil, nil
 		}
-		r.logger.Error("Failed to read trip.", zap.Error(err))
-		return nil, err
+		r.logger.Error("Failed to read trip.", zap.Error(findErr))
+		return nil, findErr
 	}
 
 	var foundTrip trip.Trip
@@ -116,7 +118,7 @@ func (r *Repository) GetTrip(ctx context.Context, tripId uuid.UUID) (*trip.Trip,
 	return &foundTrip, nil
 }
 
-func (r *Repository) CreateTrip(ctx context.Context, tripId uuid.UUID) error {
+func (r *Repository) CreateTrip(ctx context.Context, trip trip.Trip) error {
 	client, err := r.getMongoClient(ctx)
 	if err != nil {
 		r.logger.Error("Failed to create Mongo client.", zap.Error(err))
@@ -131,22 +133,31 @@ func (r *Repository) CreateTrip(ctx context.Context, tripId uuid.UUID) error {
 
 	col := client.Database("driver-service").Collection("trips")
 
-	_, err = col.InsertOne(ctx, trip.Trip{
-		Id:         tripId,
-		DriverId:   "test",
-		From:       models.LatLngLiteral{},
-		To:         models.LatLngLiteral{},
-		Price:      models.Money{},
-		TripStatus: "DRIVER_SEARCH",
-	})
+	mongoEntity := trip2.Trip{
+		Id:       trip.Id.String(),
+		DriverId: "",
+		From: models.LatLngLiteral{
+			Lat: trip.From.Lat,
+			Lng: trip.From.Lng,
+		},
+		To: models.LatLngLiteral{
+			Lat: trip.To.Lat,
+			Lng: trip.To.Lng,
+		},
+		Price: models.Money{
+			Amount:   trip.Price.Amount,
+			Currency: trip.Price.Currency,
+		},
+		TripStatus: trip.TripStatus,
+	}
+
+	_, err = col.InsertOne(ctx, mongoEntity)
 	if err != nil {
 		r.logger.Error("Failed to create new trip", zap.Error(err))
 		return err
 	}
 
 	return nil
-
-	// return r.updateTripStatus(ctx, tripId, trip.DriverFound)
 }
 
 func (r *Repository) AcceptTrip(ctx context.Context, tripId uuid.UUID) (tripFound bool, err error) {
@@ -155,6 +166,10 @@ func (r *Repository) AcceptTrip(ctx context.Context, tripId uuid.UUID) (tripFoun
 
 func (r *Repository) StartTrip(ctx context.Context, tripId uuid.UUID) (tripFound bool, err error) {
 	return r.updateTripStatus(ctx, tripId, trip.Started)
+}
+
+func (r *Repository) EndTrip(ctx context.Context, tripId uuid.UUID) (tripFound bool, err error) {
+	return r.updateTripStatus(ctx, tripId, trip.Ended)
 }
 
 func (r *Repository) CancelTrip(ctx context.Context, tripId uuid.UUID) (tripFound bool, err error) {
@@ -176,7 +191,7 @@ func (r *Repository) updateTripStatus(ctx context.Context, tripId uuid.UUID, tri
 
 	col := client.Database("driver-service").Collection("trips")
 
-	filter := bson.D{{"id", tripId}}
+	filter := bson.D{{"id", tripId.String()}}
 	update := bson.D{{"$set", bson.D{{"tripStatus", tripStatus}}}}
 
 	result, err := col.UpdateOne(ctx, filter, update)

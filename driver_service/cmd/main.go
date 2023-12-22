@@ -24,7 +24,7 @@ func main() {
 
 	app := application.NewApp()
 
-	if err := app.Init(ctxSys, appEnv); err != nil {
+	if err := app.Init(appEnv); err != nil {
 		log.Fatal("start app failed")
 	}
 

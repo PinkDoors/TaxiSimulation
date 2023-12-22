@@ -16,7 +16,7 @@ type Consumer struct {
 	logger  *zap.Logger
 }
 
-func NewKafkaConsumer(
+func NewConsumer(
 	config ConsumerConfig,
 	handler consumer.MessageHandler,
 	logger *zap.Logger,
@@ -28,49 +28,48 @@ func NewKafkaConsumer(
 	}
 }
 
-func (tbc *Consumer) Consume(ctx context.Context) {
-	go func() {
-		reader := kafka.NewReader(kafka.ReaderConfig{
-			Brokers:        []string{tbc.config.Host},
-			Topic:          tbc.config.Topic,
-			GroupID:        tbc.config.Group,
-			SessionTimeout: time.Second * time.Duration(tbc.config.SessionTimeout),
-		})
-		defer reader.Close()
+func (c *Consumer) Consume(ctx context.Context) {
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:        []string{c.config.Host},
+		Topic:          c.config.Topic,
+		GroupID:        c.config.Group,
+		SessionTimeout: time.Second * time.Duration(c.config.SessionTimeout),
+	})
+	defer reader.Close()
 
-		logString := fmt.Sprintf("Started consumer for topic: \"%s\".", tbc.config.Topic)
-		tbc.logger.Info(logString)
+	logString := fmt.Sprintf("Started consumer for topic: \"%s\".", c.config.Topic)
+	c.logger.Info(logString)
 
-		for {
-			msg, err := reader.FetchMessage(ctx)
-			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					logString := fmt.Sprintf("Consumer for topic: \"%s\" was stopped by cancellation token.", tbc.config.Topic)
-					tbc.logger.Error(logString, zap.Error(err))
-					return
-				}
-				logString := fmt.Sprintf("Failed to read messages from topic: \"%s\".", tbc.config.Topic)
-				tbc.logger.Error(logString, zap.Error(err))
-				continue
+	for {
+		msg, err := reader.FetchMessage(ctx)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				logString := fmt.Sprintf("Consumer for topic: \"%s\" was stopped by cancellation token.", c.config.Topic)
+				c.logger.Error(logString, zap.Error(err))
+				return
 			}
-
-			tbc.logger.Info("Message:" + string(msg.Value))
-			// err = tbc.handler.Handle(ctx, msg)
-
-			if err != nil {
-				logString := fmt.Sprintf("Error trying to handle message from topic: \"%s\".", tbc.config.Topic)
-				tbc.logger.Error(logString, zap.Error(err))
-			} else {
-				err := reader.CommitMessages(ctx, msg)
-				if err != nil {
-					logString := fmt.Sprintf("Error trying to commit message from topic: \"%s\".", tbc.config.Topic)
-					tbc.logger.Error(logString, zap.Error(err))
-				}
-			}
-
-			time.Sleep(300 * time.Duration(tbc.config.RetryTimeout))
+			logString := fmt.Sprintf("Failed to read messages from topic: \"%s\".", c.config.Topic)
+			c.logger.Error(logString, zap.Error(err))
+			continue
 		}
-	}()
 
-	<-ctx.Done()
+		logString := fmt.Sprintf("Consumed message from topic \"%s\" - \"%s\"", c.config.Topic, string(msg.Value))
+		c.logger.Info(logString)
+		err = c.handler.Handle(ctx, msg)
+
+		if err != nil {
+			logString := fmt.Sprintf("Error trying to handle message from topic: \"%s\".", c.config.Topic)
+			c.logger.Error(logString, zap.Error(err))
+		} else {
+			err := reader.CommitMessages(ctx, msg)
+			logString := fmt.Sprintf("Commmited message from topic \"%s\" - \"%s\"", c.config.Topic, string(msg.Value))
+			c.logger.Info(logString)
+			if err != nil {
+				logString := fmt.Sprintf("Error trying to commit message from topic: \"%s\".", c.config.Topic)
+				c.logger.Error(logString, zap.Error(err))
+			}
+		}
+
+		time.Sleep(300 * time.Duration(c.config.RetryTimeout))
+	}
 }

@@ -5,11 +5,14 @@ import (
 	config "driver_service/configs"
 	http2 "driver_service/internal/adapters/http"
 	openapi "driver_service/internal/adapters/http/generate"
+	"driver_service/internal/application/driver"
 	"driver_service/internal/application/trip"
 	domainTrip "driver_service/internal/domain/repository/trip"
 	"driver_service/internal/infrastracture/eventbus/consumer"
-	"driver_service/internal/infrastracture/eventbus/consumer/kafka"
-	"driver_service/internal/infrastracture/eventbus/consumer/kafka/trip_inbound"
+	kafka_consumers "driver_service/internal/infrastracture/eventbus/consumer/kafka"
+	"driver_service/internal/infrastracture/eventbus/consumer/kafka/trip_outbound"
+	"driver_service/internal/infrastracture/eventbus/producer"
+	kafka_producers "driver_service/internal/infrastracture/eventbus/producer/kafka"
 	"driver_service/internal/infrastracture/logger"
 	infraTrip "driver_service/internal/infrastracture/repository/trip"
 	"errors"
@@ -26,21 +29,23 @@ import (
 
 type App struct {
 	//userHandler    *handlers.UserHandler
-	service    *trip.Service
-	repository domainTrip.Repository
+	tripService   *trip.Service
+	driverService *driver.Service
+	repository    domainTrip.Repository
 
-	tripEventsConsumer consumer.Consumer
-	tripEventsHandler  consumer.MessageHandler
-	logger             *zap.Logger
-	srv                *http.Server
-	cfg                *config.Config
+	tripEventsConsumer   consumer.Consumer
+	tripEventsHandler    consumer.MessageHandler
+	tripCommandsProducer producer.Producer
+	logger               *zap.Logger
+	srv                  *http.Server
+	cfg                  *config.Config
 }
 
 func NewApp() *App {
 	return &App{}
 }
 
-func (a *App) Init(ctx context.Context, appEnv string) error {
+func (a *App) Init(appEnv string) error {
 	cfg, err := config.NewConfig(appEnv)
 	if err != nil {
 		log.Fatal("Could not read config.", err)
@@ -73,18 +78,23 @@ func (a *App) InitRepositories() {
 }
 
 func (a *App) InitServices() {
-	a.service = trip.NewService(a.repository, a.logger)
+	a.tripService = trip.NewService(a.repository, a.logger)
+	a.driverService = driver.NewService(a.tripService, a.tripCommandsProducer, a.logger)
 }
 
 func (a *App) InitKafka() {
-	a.tripEventsHandler = trip_inbound.NewTripInboundMessageHandler(a.service, a.logger)
-	a.tripEventsConsumer = kafka.NewKafkaConsumer(kafka.ConsumerConfig{
-		Host:           a.cfg.Kafka.TripInboundTopic,
-		Topic:          a.cfg.Kafka.TripInboundTopic,
-		Group:          a.cfg.Kafka.TripInboundGroup,
-		SessionTimeout: 1,
+	a.tripEventsHandler = trip_outbound.NewTripInboundMessageHandler(a.tripService, a.logger)
+	a.tripEventsConsumer = kafka_consumers.NewConsumer(kafka_consumers.ConsumerConfig{
+		Host:           a.cfg.Kafka.HOST,
+		Topic:          a.cfg.Kafka.TripOutboundTopic,
+		Group:          a.cfg.Kafka.TripOutboundGroup,
+		SessionTimeout: 6,
 		RetryTimeout:   1,
 	}, a.tripEventsHandler, a.logger)
+	a.tripCommandsProducer = kafka_producers.NewProducer(kafka_producers.ProducerConfig{
+		Host:  a.cfg.Kafka.HOST,
+		Topic: a.cfg.Kafka.TripInboundTopic,
+	}, a.logger)
 }
 
 func (a *App) newHttpServer() {
@@ -97,7 +107,7 @@ func (a *App) newHttpServer() {
 
 	//routers.AddUserRoutes(router, a.userHandler)
 
-	tripServer := http2.NewTripServer(*a.service)
+	tripServer := http2.NewDriverServer(a.driverService, a.tripService)
 
 	// Создаем экземпляр StrictServer с использованием ранее созданного сервера
 	petStoreStrictHandler := openapi.NewStrictHandler(tripServer, nil)
@@ -124,6 +134,7 @@ func (a *App) Start(ctx context.Context) error {
 
 	go func() {
 		a.tripEventsConsumer.Consume(ctx)
+		<-ctx.Done()
 	}()
 
 	a.logger.Info("Service start at port: " + strconv.Itoa(a.cfg.Http.PORT))
