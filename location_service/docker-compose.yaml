@@ -22,7 +22,9 @@ services:
       - "8081:8081"
 
   location_db:
-    image: postgres
+    build:
+      context: "."
+      dockerfile: ".docker/postgre.Dockerfile"
     restart: always
     ports:
       - 5432:5432
