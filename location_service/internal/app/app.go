@@ -36,12 +36,13 @@ func New(config *Config, logger *zap.Logger) (App, error) {
 		return nil, err
 	}
 
-	locationRepo := locationrepo.New(pgxPool)
+	locationRepo := locationrepo.New(pgxPool, logger)
 	locationService := service.New(locationRepo, logger)
 
 	return &app{
 		config:          config,
 		locationService: locationService,
+		logger:          logger,
 	}, nil
 }
 
@@ -82,7 +83,7 @@ func (a *app) newHttpServer() {
 		WithUserAgent: true,
 	}))
 
-	locationServer := httpadapter.New(*a.locationService)
+	locationServer := httpadapter.New(*a.locationService, a.logger)
 
 	petStoreStrictHandler := openapi.NewStrictHandler(locationServer, nil)
 	openapi.HandlerFromMux(petStoreStrictHandler, router)
@@ -115,6 +116,10 @@ func (a *app) Shutdown(ctx context.Context) error {
 func (a *app) Serve() error {
 	a.newHttpServer()
 	done := make(chan os.Signal, 1)
+	a.logger.Info(
+		"Server is starting now...",
+		zap.String("Port", strconv.Itoa(a.config.App.Port)),
+	)
 
 	signal.Notify(done, syscall.SIGTERM, syscall.SIGINT)
 

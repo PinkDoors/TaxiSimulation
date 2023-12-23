@@ -14,4 +14,4 @@ ENV POSTGRES_USER usr
 ENV POSTGRES_PASSWORD pass1234
 ENV POSTGRES_DB location
 
-COPY ./init-postgis.sql /docker-entrypoint-initdb.d/
+COPY ./init-extensions.sql /docker-entrypoint-initdb.d/
