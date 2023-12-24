@@ -7,7 +7,7 @@ import (
 )
 
 type Repository interface {
-	GetTrips(ctx context.Context) ([]trip.Trip, error)
+	GetCreatedTrips(ctx context.Context) ([]trip.Trip, error)
 	GetTrip(ctx context.Context, tripId uuid.UUID) (*trip.Trip, error)
 
 	CreateTrip(ctx context.Context, trip trip.Trip) error

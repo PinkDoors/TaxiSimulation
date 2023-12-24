@@ -3,10 +3,11 @@ package http
 import (
 	"context"
 	generated "driver_service/internal/adapters/http/generate"
-	"driver_service/internal/application/driver"
-	"driver_service/internal/application/trip"
+	"driver_service/internal/application/services/driver"
+	"driver_service/internal/application/services/trip"
 	trip2 "driver_service/internal/mappers/trip"
 	"fmt"
+	"time"
 )
 
 type DriverServer struct {
@@ -25,24 +26,35 @@ func NewDriverServer(
 }
 
 // GetTrips обработчик для GetTrips ручки
-func (s *DriverServer) GetTrips(ctx context.Context, _ generated.GetTripsRequestObject) (generated.GetTripsResponseObject, error) {
+func (s *DriverServer) GetTrips(ctx context.Context, request generated.GetTripsRequestObject) (generated.GetTripsResponseObject, error) {
 	// Логика для обработки GetTrips
 	fmt.Println("Handling GetTrips request")
 	// Возвращаем фиктивные данные
+	// Создаем канал для сигнализации о наличии поездок
 
-	foundTrips, err := s.tripService.GetTrips(ctx)
-	if err != nil {
-		return generated.GetTrips500Response{}, err
+	const maxAttempts = 10
+	attempts := 0
+
+	for attempts <= maxAttempts {
+		foundTrips, err := s.driverService.GetTripsForDriver(ctx, request.Params.UserId)
+		if err != nil {
+			return generated.GetTrips500Response{}, err
+		}
+
+		if len(foundTrips) > 0 {
+			var targetTrips []generated.Trip
+			for _, sourceTrip := range foundTrips {
+				targetTrip := trip2.ToResponseTrip(sourceTrip)
+				targetTrips = append(targetTrips, targetTrip)
+			}
+			return generated.GetTrips200JSONResponse(targetTrips), nil
+		}
+
+		attempts++
+		time.Sleep(time.Second) // Пауза перед следующей попыткой
 	}
 
-	var targetTrips []generated.Trip
-
-	for _, sourceTrip := range foundTrips {
-		targetTrip := trip2.ToResponseTrip(sourceTrip)
-		targetTrips = append(targetTrips, targetTrip)
-	}
-
-	return generated.GetTrips200JSONResponse(targetTrips), nil
+	return generated.GetTrips504Response{}, nil
 }
 
 // GetTripByID обработчик для GetTripByID ручки
@@ -55,7 +67,7 @@ func (s *DriverServer) GetTripByID(ctx context.Context, request generated.GetTri
 		return generated.GetTripByID500Response{}, err
 	}
 
-	if foundTrip != nil {
+	if foundTrip == nil {
 		return generated.GetTripByID404Response{}, err
 	}
 
@@ -91,8 +103,9 @@ func (s *DriverServer) CancelTrip(ctx context.Context, request generated.CancelT
 	fmt.Println("Handling CancelTrip request")
 
 	userId := request.Params.UserId
+	reason := request.Params.Reason
 
-	tripFound, err := s.driverService.AcceptTrip(ctx, request.TripId, userId)
+	tripFound, err := s.driverService.CancelTrip(ctx, request.TripId, userId, *reason)
 	if err != nil {
 		return generated.CancelTrip500Response{}, err
 	}

@@ -13,6 +13,7 @@ COPY app ./app
 COPY cmd ./cmd
 COPY configs ./configs
 COPY internal ./internal
+COPY pkg ./pkg
 COPY ./.env.development ./.env.development
 
 WORKDIR /app/cmd

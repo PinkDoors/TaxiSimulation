@@ -2,34 +2,35 @@ package kafka
 
 import (
 	"context"
-	"flag"
+	"driver_service/configs/kafka/producer"
 	"fmt"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
 
 type Producer struct {
-	config ProducerConfig
+	async  *bool
+	config producer.Config
 	logger *zap.Logger
 }
 
 func NewProducer(
-	config ProducerConfig,
+	async *bool,
+	config producer.Config,
 	logger *zap.Logger,
 ) *Producer {
 	return &Producer{
+		async:  async,
 		config: config,
 		logger: logger,
 	}
 }
 
 func (p *Producer) Produce(ctx context.Context, value []byte) error {
-	var async = flag.Bool("a", false, "use async")
-
 	writer := kafka.NewWriter(kafka.WriterConfig{
 		Brokers:   []string{p.config.Host},
 		Topic:     p.config.Topic,
-		Async:     *async,
+		Async:     *p.async,
 		BatchSize: 10,
 	})
 	defer writer.Close()

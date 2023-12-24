@@ -11,5 +11,10 @@ type Trip struct {
 	From       models.LatLngLiteral
 	To         models.LatLngLiteral
 	Price      models.Money
-	TripStatus TripStatus
+	TripStatus Status
+}
+
+type NullUUID struct {
+	UUID  uuid.UUID
+	Valid bool
 }

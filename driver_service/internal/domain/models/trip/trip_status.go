@@ -1,12 +1,12 @@
 package trip
 
-type TripStatus string
+type Status string
 
 const (
-	DriverSearch TripStatus = "DRIVER_SEARCH"
-	DriverFound  TripStatus = "DRIVER_FOUND" // accept
-	OnPosition   TripStatus = "ON_POSITION"
-	Started      TripStatus = "STARTED" // start
-	Ended        TripStatus = "ENDED"
-	Canceled     TripStatus = "CANCELED" // cancel
+	DriverSearch Status = "DRIVER_SEARCH"
+	DriverFound  Status = "DRIVER_FOUND" // accept
+	OnPosition   Status = "ON_POSITION"
+	Started      Status = "STARTED" // start
+	Ended        Status = "ENDED"
+	Canceled     Status = "CANCELED" // cancel
 )

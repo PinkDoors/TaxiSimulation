@@ -7,7 +7,7 @@ import (
 )
 
 func ToResponseTrip(model trip2.Trip) (responseTrip openapi.Trip) {
-	var tripStatus openapi.TripStatus = ToResponseStatus(model.TripStatus)
+	var tripStatus = ToResponseStatus(model.TripStatus)
 
 	return openapi.Trip{
 		Id:       &model.Id,
@@ -28,7 +28,7 @@ func ToResponseTrip(model trip2.Trip) (responseTrip openapi.Trip) {
 	}
 }
 
-func ToResponseStatus(modelStatus trip2.TripStatus) (responseStatus openapi.TripStatus) {
+func ToResponseStatus(modelStatus trip2.Status) (responseStatus openapi.TripStatus) {
 	switch modelStatus {
 	case trip.DriverSearch:
 		return openapi.DRIVERSEARCH

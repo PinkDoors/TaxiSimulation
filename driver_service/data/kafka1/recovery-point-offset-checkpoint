@@ -3,9 +3,9 @@
 __consumer_offsets 13 0
 __consumer_offsets 46 0
 __consumer_offsets 9 0
-__consumer_offsets 42 9
+__consumer_offsets 42 165
 __consumer_offsets 21 0
-trip-outbound 0 0
+trip-outbound 0 28
 __consumer_offsets 17 0
 __consumer_offsets 30 0
 __consumer_offsets 26 0
@@ -18,7 +18,7 @@ __consumer_offsets 45 0
 __consumer_offsets 12 0
 __consumer_offsets 41 0
 __consumer_offsets 24 0
-trip-inbound 0 2
+trip-inbound 0 14
 __consumer_offsets 20 0
 __consumer_offsets 49 0
 __consumer_offsets 0 0

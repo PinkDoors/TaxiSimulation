@@ -36,4 +36,4 @@ scrape_configs:
   scheme: http
   static_configs:
   - targets:
-      - homework:9000
+      - service:9000

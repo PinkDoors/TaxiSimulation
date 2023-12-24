@@ -21,7 +21,7 @@ type Database struct {
 }
 
 type Kafka struct {
-	HOST              string `mapstructure:"KAFKA_HOST"`
+	Host              string `mapstructure:"KAFKA_HOST"`
 	TripInboundTopic  string `mapstructure:"TRIP_INBOUND_TOPIC"`
 	TripInboundGroup  string `mapstructure:"TRIP_INBOUND_CONSUMER_GROUP"`
 	TripOutboundTopic string `mapstructure:"TRIP_OUTBOUND_TOPIC"`
@@ -29,7 +29,8 @@ type Kafka struct {
 }
 
 type HTTP struct {
-	PORT int `mapstructure:"SERVER_PORT"`
+	ServerPort        int    `mapstructure:"SERVER_PORT"`
+	LocationServerUrl string `mapstructure:"LOCATION_SERVICE_URL"`
 }
 
 func NewConfig(appEnv string) (Config, error) {

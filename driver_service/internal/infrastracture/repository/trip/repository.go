@@ -3,16 +3,15 @@ package trip
 import (
 	"context"
 	config "driver_service/configs"
-	"driver_service/internal/domain/models"
 	"driver_service/internal/domain/models/trip"
 	domainRepo "driver_service/internal/domain/repository/trip"
-	trip2 "driver_service/internal/infrastracture/repository/model/trip"
+	"driver_service/internal/infrastracture/mappers"
+	"driver_service/internal/infrastracture/repository/dto"
+	trip3 "driver_service/internal/infrastracture/repository/dto/trip"
 	"errors"
-	"fmt"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.uber.org/zap"
-	"log"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -37,7 +36,7 @@ func NewRepository(
 	}
 }
 
-func (r *Repository) GetTrips(ctx context.Context) ([]trip.Trip, error) {
+func (r *Repository) GetCreatedTrips(ctx context.Context) ([]trip.Trip, error) {
 	client, err := r.getMongoClient(ctx)
 	if err != nil {
 		r.logger.Error("Failed to create Mongo client.", zap.Error(err))
@@ -50,38 +49,31 @@ func (r *Repository) GetTrips(ctx context.Context) ([]trip.Trip, error) {
 		}
 	}()
 
+	filter := bson.M{"tripStatus": trip.DriverSearch}
+
 	col := client.Database("driver-service").Collection("trips")
+	cursor, err := col.Find(ctx, filter)
 
-	strUUID := "550e8400-e29b-41d4-a716-446612340000"
-	parsedUUID, err := uuid.Parse(strUUID)
-	fmt.Println("Inserting 1 documents...")
-	_, err2 := col.InsertOne(ctx, trip.Trip{
-		Id:         parsedUUID,
-		DriverId:   "test",
-		From:       models.LatLngLiteral{},
-		To:         models.LatLngLiteral{},
-		Price:      models.Money{},
-		TripStatus: "DRIVER_SEARCH",
-	})
-	if err2 != nil {
-		// log.Fatal(err)
-	}
-
-	cursor, err := col.Find(ctx, bson.M{})
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) == false {
-			r.logger.Error("Failed to read trips.", zap.Error(err))
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
 		}
+		r.logger.Error("Failed to read trips.", zap.Error(err))
+		return nil, err
 	}
 
-	var foundTrips []trip.Trip
-	err = cursor.All(ctx, &foundTrips)
-	if err != nil {
+	var foundTrips []trip3.Trip
+	if err = cursor.All(context.TODO(), &foundTrips); err != nil {
 		r.logger.Error("Failed to decode trips.", zap.Error(err))
 		return nil, err
 	}
 
-	return foundTrips, nil
+	tripModels, err := mappers.TripDtosToModels(foundTrips)
+	if err != nil {
+		return nil, err
+	}
+
+	return tripModels, nil
 }
 
 func (r *Repository) GetTrip(ctx context.Context, tripId uuid.UUID) (*trip.Trip, error) {
@@ -109,13 +101,18 @@ func (r *Repository) GetTrip(ctx context.Context, tripId uuid.UUID) (*trip.Trip,
 		return nil, findErr
 	}
 
-	var foundTrip trip.Trip
+	var foundTrip trip3.Trip
 	if err = result.Decode(&foundTrip); err != nil {
 		r.logger.Error("Failed to decode trip", zap.Error(err))
 		return nil, err
 	}
 
-	return &foundTrip, nil
+	tripModel, err := mappers.TripDtoToModel(foundTrip)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tripModel, nil
 }
 
 func (r *Repository) CreateTrip(ctx context.Context, trip trip.Trip) error {
@@ -133,18 +130,18 @@ func (r *Repository) CreateTrip(ctx context.Context, trip trip.Trip) error {
 
 	col := client.Database("driver-service").Collection("trips")
 
-	mongoEntity := trip2.Trip{
+	mongoEntity := trip3.Trip{
 		Id:       trip.Id.String(),
 		DriverId: "",
-		From: models.LatLngLiteral{
-			Lat: trip.From.Lat,
-			Lng: trip.From.Lng,
+		From: dto.LatLngLiteral{
+			Lat: float64(trip.From.Lat),
+			Lng: float64(trip.From.Lng),
 		},
-		To: models.LatLngLiteral{
-			Lat: trip.To.Lat,
-			Lng: trip.To.Lng,
+		To: dto.LatLngLiteral{
+			Lat: float64(trip.To.Lat),
+			Lng: float64(trip.To.Lng),
 		},
-		Price: models.Money{
+		Price: dto.Money{
 			Amount:   trip.Price.Amount,
 			Currency: trip.Price.Currency,
 		},
@@ -176,7 +173,7 @@ func (r *Repository) CancelTrip(ctx context.Context, tripId uuid.UUID) (tripFoun
 	return r.updateTripStatus(ctx, tripId, trip.Canceled)
 }
 
-func (r *Repository) updateTripStatus(ctx context.Context, tripId uuid.UUID, tripStatus trip.TripStatus) (tripFound bool, err error) {
+func (r *Repository) updateTripStatus(ctx context.Context, tripId uuid.UUID, tripStatus trip.Status) (tripFound bool, err error) {
 	client, err := r.getMongoClient(ctx)
 	if err != nil {
 		r.logger.Error("Failed to create Mongo client.", zap.Error(err))
@@ -228,13 +225,4 @@ func (r *Repository) getMongoClient(ctx context.Context) (*mongo.Client, error) 
 	}
 
 	return client, nil
-}
-
-func checkFindErr(err error) {
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return
-		}
-		log.Fatal(err)
-	}
 }

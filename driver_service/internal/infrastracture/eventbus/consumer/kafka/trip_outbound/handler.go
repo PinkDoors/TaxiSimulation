@@ -2,7 +2,7 @@ package trip_outbound
 
 import (
 	"context"
-	"driver_service/internal/application/trip"
+	trip "driver_service/internal/application/services/trip"
 	"driver_service/internal/domain/models"
 	trip2 "driver_service/internal/domain/models/trip"
 	"encoding/json"
@@ -85,7 +85,7 @@ func (timh *TripInboundMessageHandler) Handle(ctx context.Context, message kafka
 			return err
 		}
 	default:
-		timh.logger.Error("Unknown message type", zap.Error(err))
+		timh.logger.Error("Unknown message type - "+event.Type, zap.Error(err))
 		// skipping this message
 		return nil
 	}
