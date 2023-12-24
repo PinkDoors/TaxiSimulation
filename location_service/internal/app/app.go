@@ -94,7 +94,7 @@ func (a *app) newHttpServer() {
 		Namespace: "location", Name: "update_driver_request", Help: "Increment for /drivers/{driver_id}/location endpoint",
 	})
 
-	locationServer := httpadapter.New(*a.locationService, a.logger, getDriversCounter, updateDriverLocationCounter)
+	locationServer := httpadapter.New(a.locationService, a.logger, getDriversCounter, updateDriverLocationCounter)
 
 	petStoreStrictHandler := openapi.NewStrictHandler(locationServer, nil)
 	openapi.HandlerFromMuxWithBaseURL(petStoreStrictHandler, router, a.config.App.BasePath)

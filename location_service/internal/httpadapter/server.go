@@ -11,14 +11,14 @@ import (
 )
 
 type LocationServer struct {
-	locationService     service.LocationService
+	locationService     service.Service
 	logger              *zap.Logger
 	getDriversCounter   prometheus.Counter
 	updateDriverCounter prometheus.Counter
 }
 
 func New(
-	locationService service.LocationService,
+	locationService service.Service,
 	logger *zap.Logger,
 	getDriversCounter prometheus.Counter,
 	updateDriverCounter prometheus.Counter,
