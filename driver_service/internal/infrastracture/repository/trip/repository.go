@@ -7,7 +7,7 @@ import (
 	domainRepo "driver_service/internal/domain/repository/trip"
 	"driver_service/internal/infrastracture/mappers"
 	"driver_service/internal/infrastracture/repository/dto"
-	trip3 "driver_service/internal/infrastracture/repository/dto/trip"
+	dtos "driver_service/internal/infrastracture/repository/dto/trip"
 	"errors"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
@@ -62,7 +62,7 @@ func (r *Repository) GetCreatedTrips(ctx context.Context) ([]trip.Trip, error) {
 		return nil, err
 	}
 
-	var foundTrips []trip3.Trip
+	var foundTrips []dtos.Trip
 	if err = cursor.All(context.TODO(), &foundTrips); err != nil {
 		r.logger.Error("Failed to decode trips.", zap.Error(err))
 		return nil, err
@@ -101,7 +101,7 @@ func (r *Repository) GetTrip(ctx context.Context, tripId uuid.UUID) (*trip.Trip,
 		return nil, findErr
 	}
 
-	var foundTrip trip3.Trip
+	var foundTrip dtos.Trip
 	if err = result.Decode(&foundTrip); err != nil {
 		r.logger.Error("Failed to decode trip", zap.Error(err))
 		return nil, err
@@ -130,7 +130,7 @@ func (r *Repository) CreateTrip(ctx context.Context, trip trip.Trip) error {
 
 	col := client.Database("driver-service").Collection("trips")
 
-	mongoEntity := trip3.Trip{
+	mongoEntity := dtos.Trip{
 		Id:       trip.Id.String(),
 		DriverId: "",
 		From: dto.LatLngLiteral{

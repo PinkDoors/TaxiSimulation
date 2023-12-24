@@ -25,13 +25,7 @@ func NewDriverServer(
 	}
 }
 
-// GetTrips обработчик для GetTrips ручки
 func (s *DriverServer) GetTrips(ctx context.Context, request generated.GetTripsRequestObject) (generated.GetTripsResponseObject, error) {
-	// Логика для обработки GetTrips
-	fmt.Println("Handling GetTrips request")
-	// Возвращаем фиктивные данные
-	// Создаем канал для сигнализации о наличии поездок
-
 	const maxAttempts = 10
 	attempts := 0
 
@@ -51,15 +45,13 @@ func (s *DriverServer) GetTrips(ctx context.Context, request generated.GetTripsR
 		}
 
 		attempts++
-		time.Sleep(time.Second) // Пауза перед следующей попыткой
+		time.Sleep(time.Second)
 	}
 
 	return generated.GetTrips504Response{}, nil
 }
 
-// GetTripByID обработчик для GetTripByID ручки
 func (s *DriverServer) GetTripByID(ctx context.Context, request generated.GetTripByIDRequestObject) (generated.GetTripByIDResponseObject, error) {
-	// Логика для обработки GetTripByID
 	fmt.Println("Handling GetTripByID request")
 
 	foundTrip, err := s.tripService.GetTrip(ctx, request.TripId)
@@ -73,15 +65,10 @@ func (s *DriverServer) GetTripByID(ctx context.Context, request generated.GetTri
 
 	targetTrip := trip2.ToResponseTrip(*foundTrip)
 
-	// Возвращаем фиктивные данные
 	return generated.GetTripByID200JSONResponse(targetTrip), nil
 }
 
-// AcceptTrip обработчик для AcceptTrip ручки
 func (s *DriverServer) AcceptTrip(ctx context.Context, request generated.AcceptTripRequestObject) (generated.AcceptTripResponseObject, error) {
-	// Логика для обработки AcceptTrip
-	fmt.Println("Handling AcceptTrip request")
-
 	userId := request.Params.UserId
 
 	tripFound, err := s.driverService.AcceptTrip(ctx, request.TripId, userId)
@@ -93,13 +80,10 @@ func (s *DriverServer) AcceptTrip(ctx context.Context, request generated.AcceptT
 		return generated.AcceptTrip404Response{}, nil
 	}
 
-	// Возвращаем фиктивные данные
 	return generated.AcceptTrip200Response{}, nil
 }
 
-// CancelTrip обработчик для CancelTrip ручки
 func (s *DriverServer) CancelTrip(ctx context.Context, request generated.CancelTripRequestObject) (generated.CancelTripResponseObject, error) {
-	// Логика для обработки CancelTrip
 	fmt.Println("Handling CancelTrip request")
 
 	userId := request.Params.UserId
@@ -114,15 +98,10 @@ func (s *DriverServer) CancelTrip(ctx context.Context, request generated.CancelT
 		return generated.CancelTrip404Response{}, nil
 	}
 
-	// Возвращаем фиктивные данные
 	return generated.CancelTrip200Response{}, nil
 }
 
-// StartTrip обработчик для StartTrip ручки
 func (s *DriverServer) StartTrip(ctx context.Context, request generated.StartTripRequestObject) (generated.StartTripResponseObject, error) {
-	// Логика для обработки StartTrip
-	fmt.Println("Handling StartTrip request")
-
 	userId := request.Params.UserId
 
 	tripFound, err := s.driverService.StartTrip(ctx, request.TripId, userId)
@@ -134,14 +113,10 @@ func (s *DriverServer) StartTrip(ctx context.Context, request generated.StartTri
 		return generated.StartTrip404Response{}, nil
 	}
 
-	// Возвращаем фиктивные данные
 	return generated.StartTrip200Response{}, nil
 }
 
 func (s *DriverServer) EndTrip(ctx context.Context, request generated.EndTripRequestObject) (generated.EndTripResponseObject, error) {
-	// Логика для обработки StartTrip
-	fmt.Println("Handling StartTrip request")
-
 	userId := request.Params.UserId
 
 	tripFound, err := s.driverService.EndTrip(ctx, request.TripId, userId)
@@ -153,6 +128,5 @@ func (s *DriverServer) EndTrip(ctx context.Context, request generated.EndTripReq
 		return generated.EndTrip404Response{}, nil
 	}
 
-	// Возвращаем фиктивные данные
 	return generated.EndTrip200Response{}, nil
 }

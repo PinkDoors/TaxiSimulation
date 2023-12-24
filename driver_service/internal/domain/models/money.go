@@ -1,6 +1,6 @@
 package models
 
 type Money struct {
-	Amount   float64 `bson:"amount"`
-	Currency string  `bson:"currency"`
+	Amount   float64
+	Currency string
 }

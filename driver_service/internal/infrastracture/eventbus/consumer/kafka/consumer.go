@@ -2,7 +2,7 @@ package kafka
 
 import (
 	"context"
-	consumer2 "driver_service/configs/kafka/consumer"
+	kafkaConsumers "driver_service/configs/kafka/consumer"
 	"driver_service/internal/infrastracture/eventbus/consumer"
 	"errors"
 	"fmt"
@@ -12,13 +12,13 @@ import (
 )
 
 type Consumer struct {
-	config  consumer2.Config
+	config  kafkaConsumers.Config
 	handler consumer.MessageHandler
 	logger  *zap.Logger
 }
 
 func NewConsumer(
-	config consumer2.Config,
+	config kafkaConsumers.Config,
 	handler consumer.MessageHandler,
 	logger *zap.Logger,
 ) *Consumer {

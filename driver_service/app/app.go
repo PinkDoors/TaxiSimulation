@@ -39,7 +39,7 @@ type App struct {
 	//userHandler    *handlers.UserHandler
 	tripService     *trip.Service
 	driverService   *driver.Service
-	locationService location.LocationService
+	locationService location.Service
 	repository      domainTrip.Repository
 
 	tripInboundConsumer consumer.Consumer

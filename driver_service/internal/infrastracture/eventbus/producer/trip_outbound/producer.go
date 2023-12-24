@@ -4,7 +4,7 @@ import (
 	"context"
 	"driver_service/configs/kafka/producer"
 	"driver_service/internal/domain/models/trip"
-	producer2 "driver_service/internal/infrastracture/eventbus/producer"
+	eventbus "driver_service/internal/infrastracture/eventbus/producer"
 	"driver_service/internal/infrastracture/eventbus/producer/kafka"
 	"driver_service/pkg/kafka/trip_inbound"
 	"encoding/json"
@@ -16,7 +16,7 @@ import (
 )
 
 type Producer struct {
-	kafkaProducer producer2.Producer
+	kafkaProducer eventbus.Producer
 	config        producer.Config
 	logger        *zap.Logger
 }

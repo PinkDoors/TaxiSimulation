@@ -2,7 +2,7 @@ package location
 
 import (
 	"context"
-	http_configs "driver_service/configs/http"
+	httpConfigs "driver_service/configs/http"
 	"driver_service/internal/domain/models"
 	"driver_service/internal/infrastracture/mappers"
 	"driver_service/internal/infrastracture/services/location/dto"
@@ -15,13 +15,13 @@ import (
 )
 
 type Service struct {
-	config *http_configs.Config
+	config *httpConfigs.Config
 	logger *zap.Logger
 	radius int
 }
 
 func NewService(
-	config *http_configs.Config,
+	config *httpConfigs.Config,
 	logger *zap.Logger,
 ) *Service {
 	return &Service{

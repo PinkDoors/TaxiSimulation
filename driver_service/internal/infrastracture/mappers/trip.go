@@ -2,13 +2,13 @@ package mappers
 
 import (
 	"driver_service/internal/domain/models"
-	trip2 "driver_service/internal/domain/models/trip"
+	domainModels "driver_service/internal/domain/models/trip"
 	"driver_service/internal/infrastracture/repository/dto/trip"
 	"github.com/google/uuid"
 )
 
-func TripDtosToModels(dtos []trip.Trip) ([]trip2.Trip, error) {
-	var tripModels []trip2.Trip
+func TripDtosToModels(dtos []trip.Trip) ([]domainModels.Trip, error) {
+	var tripModels []domainModels.Trip
 
 	for _, tripDTO := range dtos {
 		tripModel, err := TripDtoToModel(tripDTO)
@@ -21,13 +21,13 @@ func TripDtosToModels(dtos []trip.Trip) ([]trip2.Trip, error) {
 	return tripModels, nil
 }
 
-func TripDtoToModel(dto trip.Trip) (trip2.Trip, error) {
+func TripDtoToModel(dto trip.Trip) (domainModels.Trip, error) {
 	tripId, err := uuid.Parse(dto.Id)
 	if err != nil {
-		return trip2.Trip{}, err
+		return domainModels.Trip{}, err
 	}
 
-	return trip2.Trip{
+	return domainModels.Trip{
 		Id:       tripId,
 		DriverId: dto.DriverId,
 		From: models.LatLngLiteral{

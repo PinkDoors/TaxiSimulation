@@ -5,7 +5,7 @@ import (
 	"driver_service/internal/application/eventbus/producer/trip_outbound"
 	"driver_service/internal/application/services/location"
 	"driver_service/internal/application/services/trip"
-	trip2 "driver_service/internal/domain/models/trip"
+	domainModels "driver_service/internal/domain/models/trip"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"time"
@@ -13,14 +13,14 @@ import (
 
 type Service struct {
 	tripService     *trip.Service
-	locationService location.LocationService
+	locationService location.Service
 	producer        trip_outbound.Producer
 	logger          *zap.Logger
 }
 
 func NewService(
 	tripService *trip.Service,
-	locationService location.LocationService,
+	locationService location.Service,
 	producer trip_outbound.Producer,
 	logger *zap.Logger,
 ) *Service {
@@ -32,8 +32,8 @@ func NewService(
 	}
 }
 
-func (s *Service) GetTripsForDriver(ctx context.Context, driverId uuid.UUID) ([]trip2.Trip, error) {
-	var tripsForDriver []trip2.Trip
+func (s *Service) GetTripsForDriver(ctx context.Context, driverId uuid.UUID) ([]domainModels.Trip, error) {
+	var tripsForDriver []domainModels.Trip
 
 	createdTrips, err := s.tripService.GetCreatedTrips(ctx)
 	if err != nil {
@@ -59,22 +59,22 @@ func (s *Service) GetTripsForDriver(ctx context.Context, driverId uuid.UUID) ([]
 }
 
 func (s *Service) AcceptTrip(ctx context.Context, tripId uuid.UUID, driverId uuid.UUID) (tripFound bool, err error) {
-	return s.produceChangeTripStatusCommand(ctx, tripId, driverId, trip2.DriverFound)
+	return s.produceChangeTripStatusCommand(ctx, tripId, driverId, domainModels.DriverFound)
 }
 
 func (s *Service) CancelTrip(ctx context.Context, tripId uuid.UUID, driverId uuid.UUID, reason string) (tripFound bool, err error) {
-	return s.produceChangeTripStatusCommand(ctx, tripId, driverId, trip2.Canceled)
+	return s.produceChangeTripStatusCommand(ctx, tripId, driverId, domainModels.Canceled)
 }
 
 func (s *Service) StartTrip(ctx context.Context, tripId uuid.UUID, driverId uuid.UUID) (tripFound bool, err error) {
-	return s.produceChangeTripStatusCommand(ctx, tripId, driverId, trip2.Started)
+	return s.produceChangeTripStatusCommand(ctx, tripId, driverId, domainModels.Started)
 }
 
 func (s *Service) EndTrip(ctx context.Context, tripId uuid.UUID, driverId uuid.UUID) (tripFound bool, err error) {
-	return s.produceChangeTripStatusCommand(ctx, tripId, driverId, trip2.Ended)
+	return s.produceChangeTripStatusCommand(ctx, tripId, driverId, domainModels.Ended)
 }
 
-func (s *Service) produceChangeTripStatusCommand(ctx context.Context, tripId uuid.UUID, driverId uuid.UUID, newStatus trip2.Status) (tripFound bool, err error) {
+func (s *Service) produceChangeTripStatusCommand(ctx context.Context, tripId uuid.UUID, driverId uuid.UUID, newStatus domainModels.Status) (tripFound bool, err error) {
 	foundTrip, err := s.tripService.GetTrip(ctx, tripId)
 	if err != nil {
 		return false, err

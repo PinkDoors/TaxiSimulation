@@ -2,7 +2,7 @@ package trip
 
 import (
 	"context"
-	trip2 "driver_service/internal/domain/models/trip"
+	domainModels "driver_service/internal/domain/models/trip"
 	"driver_service/internal/domain/repository/trip"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -20,19 +20,18 @@ func NewService(
 	return &Service{
 		tripRepository: tripRepo,
 		logger:         logger,
-		// userMetrics:    metrics.NewUserMetrics(),
 	}
 }
 
-func (s *Service) GetCreatedTrips(ctx context.Context) ([]trip2.Trip, error) {
+func (s *Service) GetCreatedTrips(ctx context.Context) ([]domainModels.Trip, error) {
 	return s.tripRepository.GetCreatedTrips(ctx)
 }
 
-func (s *Service) GetTrip(ctx context.Context, tripId uuid.UUID) (*trip2.Trip, error) {
+func (s *Service) GetTrip(ctx context.Context, tripId uuid.UUID) (*domainModels.Trip, error) {
 	return s.tripRepository.GetTrip(ctx, tripId)
 }
 
-func (s *Service) CreateTrip(ctx context.Context, trip trip2.Trip) error {
+func (s *Service) CreateTrip(ctx context.Context, trip domainModels.Trip) error {
 	return s.tripRepository.CreateTrip(ctx, trip)
 }
 

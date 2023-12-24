@@ -2,9 +2,9 @@ package trip_outbound
 
 import (
 	"context"
-	trip "driver_service/internal/application/services/trip"
+	"driver_service/internal/application/services/trip"
 	"driver_service/internal/domain/models"
-	trip2 "driver_service/internal/domain/models/trip"
+	domainModels "driver_service/internal/domain/models/trip"
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
@@ -53,7 +53,7 @@ func (timh *TripInboundMessageHandler) Handle(ctx context.Context, message kafka
 			return err
 		}
 	case "trip.event.created":
-		tripModel := trip2.Trip{
+		tripModel := domainModels.Trip{
 			Id:       parsedUUID,
 			DriverId: "",
 			From: models.LatLngLiteral{
@@ -68,7 +68,7 @@ func (timh *TripInboundMessageHandler) Handle(ctx context.Context, message kafka
 				Amount:   event.Data.Price.Amount,
 				Currency: event.Data.Price.Currency,
 			},
-			TripStatus: trip2.DriverSearch,
+			TripStatus: domainModels.DriverSearch,
 		}
 		err := timh.tripService.CreateTrip(ctx, tripModel)
 		if err != nil {
