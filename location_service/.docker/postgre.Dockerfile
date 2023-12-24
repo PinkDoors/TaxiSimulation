@@ -1,4 +1,4 @@
-FROM arm64v8/postgres:latest
+FROM postgres:latest
 
 # Обновление списка пакетов
 RUN apt-get update
