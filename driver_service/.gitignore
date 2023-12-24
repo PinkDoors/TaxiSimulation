@@ -5,3 +5,4 @@
 coverage.out
 .env
 .golangci.yml
+/data
