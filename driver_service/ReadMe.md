@@ -42,6 +42,18 @@ docker-compose --env-file .env.development up -d
     }
 }
   ```
+  ```
+{
+    "id": "284655d6-0190-49e7-34e9-9b4060acc261",
+    "source": "/trip",
+    "type": "trip.event.canceled",
+    "datacontenttype": "application/json",
+    "time": "2023-11-09T17:31:00Z",
+    "data": {
+        "trip_id": "e82c42d6-b86f-4e2a-93a2-858413acb123"
+    }
+}
+  ```
 * Control+D на маке (На винде не знаю, сори)
 
 ### Полезные ссылки
