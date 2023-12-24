@@ -10,6 +10,9 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"location_service/internal/httpadapter"
 	openapi "location_service/internal/httpadapter/generate"
@@ -83,10 +86,18 @@ func (a *app) newHttpServer() {
 		WithUserAgent: true,
 	}))
 
-	locationServer := httpadapter.New(*a.locationService, a.logger)
+	getDriversCounter := promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "location", Name: "get_drivers_request", Help: "Increment for /drivers endpoint",
+	})
+
+	updateDriverLocationCounter := promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "location", Name: "update_driver_request", Help: "Increment for /drivers/{driver_id}/location endpoint",
+	})
+
+	locationServer := httpadapter.New(*a.locationService, a.logger, getDriversCounter, updateDriverLocationCounter)
 
 	petStoreStrictHandler := openapi.NewStrictHandler(locationServer, nil)
-	openapi.HandlerFromMux(petStoreStrictHandler, router)
+	openapi.HandlerFromMuxWithBaseURL(petStoreStrictHandler, router, a.config.App.BasePath)
 
 	a.server = &http.Server{
 		Handler: router,
@@ -115,6 +126,11 @@ func (a *app) Shutdown(ctx context.Context) error {
 
 func (a *app) Serve() error {
 	a.newHttpServer()
+
+	// metrics for prometheus
+	http.Handle("/metrics", promhttp.Handler())
+	go http.ListenAndServe(":9000", nil) //nolint:errcheck
+
 	done := make(chan os.Signal, 1)
 	a.logger.Info(
 		"Server is starting now...",

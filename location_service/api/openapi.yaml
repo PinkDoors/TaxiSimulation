@@ -8,7 +8,7 @@ tags:
   - name: location
     description: Управление данными о местоположении
 servers:
-  - url: "http://localhost:8081"
+  - url: "http://localhost:8081/location/v1"
 paths:
   /drivers:
     get:

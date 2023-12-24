@@ -3,6 +3,7 @@ package httpadapter
 import (
 	"context"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	generated "location_service/internal/httpadapter/generate"
 	mapper "location_service/internal/mapper/driver"
@@ -10,17 +11,23 @@ import (
 )
 
 type LocationServer struct {
-	locationService service.LocationService
-	logger          *zap.Logger
+	locationService     service.LocationService
+	logger              *zap.Logger
+	getDriversCounter   prometheus.Counter
+	updateDriverCounter prometheus.Counter
 }
 
 func New(
 	locationService service.LocationService,
 	logger *zap.Logger,
+	getDriversCounter prometheus.Counter,
+	updateDriverCounter prometheus.Counter,
 ) *LocationServer {
 	return &LocationServer{
-		locationService: locationService,
-		logger:          logger,
+		locationService:     locationService,
+		logger:              logger,
+		getDriversCounter:   getDriversCounter,
+		updateDriverCounter: updateDriverCounter,
 	}
 }
 
@@ -28,6 +35,7 @@ func (l *LocationServer) GetDrivers(
 	ctx context.Context,
 	request generated.GetDriversRequestObject,
 ) (generated.GetDriversResponseObject, error) {
+	l.getDriversCounter.Inc()
 	l.logger.Info("URI /drivers was called")
 	driverList, err := l.locationService.GetDrivers(
 		ctx,
@@ -60,6 +68,7 @@ func (l *LocationServer) UpdateDriverLocation(
 	ctx context.Context,
 	request generated.UpdateDriverLocationRequestObject,
 ) (generated.UpdateDriverLocationResponseObject, error) {
+	l.updateDriverCounter.Inc()
 	l.logger.Info(
 		"URI /drivers/{driver_id}/location was called",
 		zap.String("DriverId", request.DriverId.String()),

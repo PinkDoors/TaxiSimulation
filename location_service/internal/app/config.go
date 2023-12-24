@@ -11,6 +11,7 @@ import (
 type AppConfig struct {
 	ShutdownTimeout int
 	Port            int
+	BasePath        string
 }
 
 type DatabaseConfig struct {
@@ -84,9 +85,15 @@ func getAppConfig() (AppConfig, error) {
 		return AppConfig{}, parseErr
 	}
 
+	basePath, basePathError := getEnv("BASE_PATH")
+	if basePathError != nil {
+		return AppConfig{}, basePathError
+	}
+
 	return AppConfig{
 		Port:            port,
 		ShutdownTimeout: shutdownTimeout,
+		BasePath:        basePath,
 	}, nil
 }
 
