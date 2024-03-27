@@ -1,0 +1,56 @@
+version: '3.1'
+services:
+  build:
+    image: build:develop
+    build:
+      context: "."
+      dockerfile: ".docker/build.Dockerfile"
+
+  location:
+    build:
+      context: "."
+      dockerfile: ".docker/init.Dockerfile"
+    restart: unless-stopped
+    depends_on:
+      build:
+        condition: service_completed_successfully
+      location_db:
+        condition: service_healthy
+    volumes:
+      - './migrations/driver/:/app/migrations/driver'
+    ports:
+      - "8081:8081"
+    expose:
+      - "9000"
+
+  location_db:
+    build:
+      context: "."
+      dockerfile: ".docker/postgre.Dockerfile"
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      PGUSER: usr
+      POSTGRES_DB: location
+      POSTGRES_USER: usr
+      POSTGRES_PASSWORD: pass1234
+    healthcheck:
+      test: "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - 9090:9090
+    restart: unless-stopped
+    volumes:
+      - ./.config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prom_data:/prometheus
+volumes:
+  prom_data:
